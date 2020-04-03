@@ -1,0 +1,128 @@
+---
+title: "Australia Temperature Analysis"
+author: Claire Hou
+date: "3-03-2020"
+purpose: analysing maximum and minimum temperature in Australia over 1859-2019
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Project overview
+This project aims to analyse the minimum and maximum temperature in Australia each year from 1859 to 2019.
+Data is downloaded from Australian Bureau of Meteorology.
+Our hypothesis is that the temperature is becoming more extreme as year goes by, so maximum temperature is getting higher and minimum temperature is getting lower. 
+
+```{r, message =FALSE, include = FALSE}
+#Load required packages
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+theme_set(theme_minimal())
+
+#Load dataset
+Annual_max_temp <- read_excel("Annual max temp.xlsx")
+Annual_min_temperature <- read_excel("Annual min temperature.xlsx")
+
+#Create new dataframe joining max and min temperature dataset and clean up data
+Aus_climate <- Annual_max_temp %>%
+  filter(Year != "2020") %>%
+  mutate(Min_temp = Annual_min_temperature$`Minimum temperature`) %>%
+  rename(Max_temp = 'Max temp') %>%
+  arrange(desc(Max_temp)) %>%
+  mutate(rank_max = 1:n())
+```
+
+### 1.Data preparation
+Annual minimum temperature and maximum temperature data is downloaded from BoM. 
+We create a new dataframe joining the two dataset and data is cleaned up. 
+We also created a new variable "rank_max" which order the maximum temperature from highest (1) to lowest (161). 
+```{r, message =FALSE}
+Aus_climate
+```
+
+### 2.Exploratory analysis
+We first look at the maximum temperature of all years (1859-2019) in a scatter plot.
+This will help us find any potentially correlation between temperature and year. 
+```{r fig.cap = "Fig.1 Maximum temperature across the years", message =FALSE, echo=FALSE}
+ggplot(data = Aus_climate) +
+  geom_point(mapping = aes(x = Year, y = Max_temp, color = Year)) +
+  scale_color_gradient(low="blue", high="red") +
+  theme(legend.position = "none")
+```
+On first glance the scatter plot does not show any clear pattern or correlation between the maximum temperature and years. 
+
+So we subsequently look at the years that have the highest 75th percentile maximum temperature. The aim is to identify the years that have more extreme maximum temperature. This is done using the rank_max variable. 
+```{r fig.cap = "Fig.2 The 75th percentile maximum temperature across the years", message =FALSE, echo=FALSE}
+#We first create a filtered dataframe with the 75th percentile maximum temperatures
+Max_temp_75 <- Aus_climate %>% 
+  filter(rank_max < 40.25) %>%
+  select(Year, Max_temp, rank_max) %>%
+  arrange(desc(Year)) %>%
+  mutate(rank_year = 1:n())
+
+#We then plot using the data from the filtered dataframe
+ggplot(data = Max_temp_75) +
+  geom_point(mapping = aes(x = Year, y = Max_temp, color = Year)) +
+  scale_color_gradient(low="blue", high="red") +
+  theme(legend.position = "none")
+```
+There is also no clear pattern or correlation between the more extreme maximum temperature and year, although we see slightly more clustered data points from 1900 onwards, and that there are more higher maximum temperature in the 2000's. 
+
+The two scatterplots above suggest it might be hard to find correlationship relationship using data points, so we decide to neglect using scatterplot for minimum temperature at this point. We move onto using line graph analysis next. 
+
+### 3.Trend analysis
+#### 3.1 Maximum temperature
+We first look at the maximum temperature line graph across all years. 
+```{r fig.cap = "Fig.3 Maximum temperature across the years", message =FALSE, echo=FALSE}
+ggplot(data = Aus_climate, mapping = aes(Year, Max_temp)) +
+  geom_line(mapping = aes(colour = Year)) +
+  geom_smooth(method = "lm", colour = "red") +
+  geom_text(aes(label=ifelse(rank_max<16,as.character(Year),'')),colour = "red", 
+            check_overlap = TRUE,hjust=0,vjust=0) +
+  scale_colour_gradient(low="grey", high = "black") +
+  theme(legend.position = "none")
+```
+We used linear regression to plot year against maximum temperature. The range of maximum temperature appears to fluctuate quite a bit from year to year. The red regression line suggests there is a slight upward trend as maximum temperature increases throughout the years. There doesn't appear to be a cluster of extreme temperatures around the 2000's.
+
+We also labelled the years with top 10 percent highest maximum temperature. 
+Note that our regression line is not statistical evidence that there is a correlation between year and temperature.  
+
+#### 3.2 Minimum temperature
+Next we look at the minimum temperature across the years. Our hypothesis is that minimum temperature will also become more extreme as years go by.
+```{r fig.cap = "Fig.4 Minimum temperature across the years", message =FALSE, echo=FALSE}
+ggplot(data = Aus_climate, mapping = aes(Year, Min_temp)) +
+  geom_line(mapping = aes(colour = Year)) +
+  geom_smooth(method = "lm", colour = "blue") +
+  geom_text(aes(label=ifelse(Min_temp<3.8,as.character(Year),'')),colour = "blue", 
+            check_overlap = TRUE,hjust=0,vjust=0) +
+  scale_colour_gradient(low="grey", high = "black") +
+  theme(legend.position = "none")
+```
+It is clear that our hypothesis is not supported. Minimum temperature appears to become higher with time. The blue linear regression line shows positive correlation between minimum temperature and year. 
+We labelled the years with the lowest 10-percentile of minimum temperature. Notice all years are before the 2000's. 
+
+#### 3.3 Trend comparison
+If we put maximum temperature and minimum temperature curves together. 
+```{r fig.cap = "Fig.5 Max and min temperature across the years", message =FALSE, echo=FALSE}
+ggplot(data = Aus_climate, mapping = aes(Year, Max_temp)) +
+  geom_line(mapping = aes(colour = Year)) +
+  geom_smooth(method = "lm", colour = "red") +
+  geom_text(aes(label=ifelse(rank_max<16,as.character(Year),'')),colour = "red", 
+            check_overlap = TRUE,hjust=0,vjust=0) +
+  geom_line(mapping = aes(Year, Min_temp, colour = Year)) +
+  geom_smooth(mapping = aes(Year, Min_temp), method = "lm", colour = "blue") +
+  geom_text(mapping = aes(Year, Min_temp, label=ifelse(Min_temp<3.8,as.character(Year),'')),
+            colour = "blue", 
+            check_overlap = TRUE,hjust=0,vjust=0) +
+  scale_colour_gradient(low="grey", high = "black") +
+  scale_y_continuous(breaks = c(0,5,10,20,30,35,40,45)) +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank())
+```
+The two curves display parallel trends. Both maximum and minimum temperatures seem to be rising as time goes by. Although maximum temperature fluctuate quite significantly over the years, so we do not want to conclude that this is evidence max temperature is rising. 
+However, it is an interesting analysis, and may be taken into account as a general overview of why we should try to learn more about evidence relating to climate change. 
+
+![](https://media.giphy.com/media/BNKGM6uOgPhp6/giphy.gif)
